@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Resonance Clock</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Mono:wght@400;700&display=swap');
+
+  :root{
+    --bg-0:#070b09;
+    --panel:#1c140e;
+    --panel-edge:#3c2c1c;
+    --panel-edge-lit:#5a4128;
+    --brass:#bd8347;
+    --brass-bright:#e3b377;
+    --amber:#f5a93b;
+    --amber-dim:#7a551f;
+    --teal:#74e3c6;
+    --ivory:#ece3d2;
+    --ivory-dim:#cfc4ad;
+    --dim:#8d8170;
+  }
+
+  *{box-sizing:border-box;}
+
+  html,body{
+    margin:0;
+    min-height:100vh;
+    background:
+      radial-gradient(ellipse 120% 80% at 50% -10%, #11201a 0%, var(--bg-0) 55%),
+      var(--bg-0);
+    color:var(--ivory);
+    font-family:'Space Mono', monospace;
+    display:flex;
+    justify-content:center;
+    align-items:flex-start;
+    padding:28px 14px 60px;
+  }
+
+  .device{ width:100%; max-width:420px; }
+
+  .plate{
+    position:relative;
+    background:linear-gradient(160deg, #241a12 0%, var(--panel) 45%, #150f0a 100%);
+    border:1px solid var(--panel-edge);
+    border-radius:18px;
+    padding:26px 22px 22px;
+    box-shadow:
+      0 1px 0 0 var(--panel-edge-lit) inset,
+      0 30px 60px -20px rgba(0,0,0,0.7),
+      0 0 0 1px rgba(0,0,0,0.4);
+  }
+
+  .screw{
+    position:absolute; width:9px; height:9px; border-radius:50%;
+    background:radial-gradient(circle at 35% 30%, var(--brass-bright), var(--brass) 55%, #5a3d20 100%);
+    box-shadow:0 1px 2px rgba(0,0,0,0.6) inset, 0 1px 1px rgba(0,0,0,0.5);
+  }
+  .screw.tl{top:12px;left:12px;} .screw.tr{top:12px;right:12px;}
+  .screw.bl{bottom:12px;left:12px;} .screw.br{bottom:12px;right:12px;}
+
+  .sr-only{
+    position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+  }
+
+  .eyebrow{ font-size:10px; letter-spacing:0.22em; color:var(--dim); text-align:center; margin:0 0 4px; }
+
+  h1{
+    font-family:'Fraunces', serif; font-weight:600; font-optical-sizing:auto;
+    font-size:26px; letter-spacing:0.01em; text-align:center; color:var(--ivory); margin:0 0 16px;
+  }
+
+  .controls{
+    display:flex; justify-content:center; align-items:center; gap:8px;
+    flex-wrap:wrap; margin:0 0 18px;
+  }
+  .ctrl{ display:flex; align-items:center; gap:6px; font-size:9px; letter-spacing:.12em; color:var(--dim); }
+  #tzSelect{
+    background:rgba(0,0,0,0.32); color:var(--ivory); border:1px solid var(--panel-edge);
+    border-radius:6px; padding:5px 6px; font-family:'Space Mono',monospace; font-size:10.5px;
+  }
+  .ctrl-btn{
+    background:rgba(0,0,0,0.32); color:var(--ivory-dim); border:1px solid var(--panel-edge);
+    border-radius:6px; padding:6px 10px; font-family:'Space Mono',monospace; font-size:10px;
+    letter-spacing:.06em; cursor:pointer;
+  }
+  .ctrl-btn[aria-pressed="true"]{ color:var(--amber); border-color:var(--amber-dim); }
+  #tzSelect:focus-visible, .ctrl-btn:focus-visible{ outline:2px solid var(--amber); outline-offset:2px; }
+
+  .dial-wrap{ position:relative; width:78%; max-width:260px; margin:4px auto 18px; }
+  svg{ display:block; width:100%; height:auto; }
+
+  .tick-line{ stroke:var(--brass); stroke-width:2.5; }
+  .tick-line.active{ stroke:var(--amber); stroke-width:3.5; filter:drop-shadow(0 0 3px var(--amber)); }
+  .tick-num{
+    font-family:'Space Mono', monospace; font-size:13px; fill:var(--ivory-dim);
+    text-anchor:middle; dominant-baseline:middle;
+  }
+  .tick-num.active{ fill:var(--amber); font-weight:700; }
+
+  .dial-face{ fill:#e8dfc9; stroke:var(--panel-edge); stroke-width:2; }
+  .dial-face.flash{ animation:phaseFlash 0.9s ease-out; }
+  @keyframes phaseFlash{
+    0%{ filter:drop-shadow(0 0 0px rgba(245,169,59,0)); }
+    35%{ filter:drop-shadow(0 0 20px rgba(245,169,59,0.85)); }
+    100%{ filter:drop-shadow(0 0 0px rgba(245,169,59,0)); }
+  }
+  @media (prefers-reduced-motion: reduce){ .dial-face.flash{ animation:none; } }
+
+  .needle{
+    stroke:var(--brass-bright); stroke-width:3.2; stroke-linecap:round;
+    filter:drop-shadow(0 0 4px rgba(245,169,59,0.55));
+  }
+  .hub{ fill:var(--brass); stroke:#5a3d20; stroke-width:1; }
+
+  .phase-label{
+    text-align:center; font-family:'Fraunces', serif; font-size:14px;
+    color:var(--brass-bright); letter-spacing:0.04em; margin:0 0 20px;
+  }
+  .phase-label span{ color:var(--dim); font-family:'Space Mono',monospace; font-size:11px; }
+
+  .pulse-row{ display:flex; justify-content:center; gap:9px; margin-bottom:6px; }
+  .pulse-dot{ width:9px; height:9px; border-radius:50%; background:#3a2f22; border:1px solid var(--panel-edge-lit); }
+  .pulse-dot.filled{ background:var(--brass); border-color:var(--brass); }
+  .pulse-dot.now{ background:var(--amber); border-color:var(--amber); box-shadow:0 0 6px var(--amber); }
+  .row-caption{ text-align:center; font-size:9px; letter-spacing:0.18em; color:var(--dim); margin:0 0 18px; }
+
+  .tick-bar-wrap{ margin:0 0 24px; }
+  .tick-bar{ display:flex; gap:3px; height:6px; }
+  .tick-seg{ flex:1; background:#3a2f22; border-radius:1px; }
+  .tick-seg.done{ background:var(--amber-dim); }
+  .tick-seg.live{ background:var(--amber); box-shadow:0 0 5px var(--amber); }
+
+  .readouts{ display:flex; gap:12px; margin-bottom:20px; }
+  .readout{ flex:1; background:rgba(0,0,0,0.28); border:1px solid var(--panel-edge); border-radius:10px; padding:12px 10px 10px; text-align:center; }
+  .readout .label{ font-size:9px; letter-spacing:0.18em; color:var(--dim); margin:0 0 6px; }
+  .readout .value{ font-weight:700; font-size:21px; letter-spacing:0.02em; margin:0; }
+  .readout.resonance .value{ color:var(--amber); text-shadow:0 0 10px rgba(245,169,59,0.35); }
+  .readout.reference .value{ color:var(--teal); text-shadow:0 0 10px rgba(116,227,198,0.3); font-size:19px; }
+  .readout .sub{ font-size:8.5px; letter-spacing:0.1em; color:var(--ivory-dim); margin:6px 0 0; }
+
+  .legend{ border-top:1px solid var(--panel-edge); padding-top:14px; margin-bottom:14px; }
+  .legend-row{ display:flex; justify-content:space-between; font-size:10.5px; color:var(--ivory-dim); padding:4px 2px; }
+  .legend-row b{ color:var(--brass-bright); font-weight:700; }
+  .legend-row span{ color:var(--dim); }
+
+  .footnote{ font-size:9.5px; line-height:1.5; color:var(--dim); text-align:center; margin:0; padding-top:4px; }
+
+  @media (max-width:360px){ h1{ font-size:22px; } .readout .value{ font-size:18px; } }
+</style>
+</head>
+<body>
+
+<div class="device">
+  <div class="plate">
+    <div class="screw tl"></div>
+    <div class="screw tr"></div>
+    <div class="screw bl"></div>
+    <div class="screw br"></div>
+
+    <div id="srAnnounce" class="sr-only" aria-live="polite" role="status"></div>
+
+    <p class="eyebrow">AN INSTRUMENT CALIBRATED TO 9, NOT 24</p>
+    <h1>The Resonance Clock</h1>
+
+    <div class="controls">
+      <label class="ctrl" for="tzSelect">
+        ANCHOR
+        <select id="tzSelect" aria-label="Anchor timezone">
+          <option value="local">Local (device)</option>
+          <option value="UTC">UTC</option>
+          <option value="Asia/Beirut">Beirut</option>
+          <option value="Europe/London">London</option>
+          <option value="Europe/Paris">Paris</option>
+          <option value="America/New_York">New York</option>
+          <option value="America/Los_Angeles">Los Angeles</option>
+          <option value="Asia/Dubai">Dubai</option>
+          <option value="Asia/Kolkata">Mumbai</option>
+          <option value="Asia/Shanghai">Shanghai</option>
+          <option value="Asia/Tokyo">Tokyo</option>
+          <option value="Australia/Sydney">Sydney</option>
+        </select>
+      </label>
+      <button id="soundToggle" class="ctrl-btn" type="button" aria-pressed="false">SOUND OFF</button>
+    </div>
+
+    <div class="dial-wrap">
+      <svg viewBox="0 0 300 300" aria-hidden="true">
+        <circle class="dial-face" id="dialFace" cx="150" cy="150" r="138"/>
+        <g id="bands"></g>
+        <g id="ticks"></g>
+        <line id="needle" class="needle" x1="150" y1="150" x2="150" y2="55"/>
+        <circle class="hub" cx="150" cy="150" r="7"/>
+      </svg>
+    </div>
+
+    <p class="phase-label" id="phaseLabel">PHASE 1 — CHARGE I <span>(00:00–02:40)</span></p>
+
+    <div class="pulse-row" id="pulseRow"></div>
+    <p class="row-caption">PULSE WITHIN CURRENT PHASE — 6 PER PHASE</p>
+
+    <div class="tick-bar-wrap">
+      <div class="tick-bar" id="tickBar"></div>
+    </div>
+
+    <div class="readouts">
+      <div class="readout resonance">
+        <p class="label">RESONANCE TIME</p>
+        <p class="value" id="resVal">1.1.00</p>
+        <p class="sub">PHASE · PULSE · TICK</p>
+      </div>
+      <div class="readout reference">
+        <p class="label">REFERENCE — STANDARD</p>
+        <p class="value" id="refVal">00:00:00</p>
+        <p class="sub" id="refDate">—</p>
+      </div>
+    </div>
+
+    <div class="legend">
+      <div class="legend-row"><span>1 cycle</span><b>9 phases</b><span>2h 40m each</span></div>
+      <div class="legend-row"><span>1 phase</span><b>6 pulses</b><span>26m 40s each</span></div>
+      <div class="legend-row"><span>1 pulse</span><b>10 ticks</b><span>160s each</span></div>
+    </div>
+
+    <p class="footnote">Calibrated against standard time, not detached from it. The digital-root arithmetic behind 3-6-9 is real; the "magnificence of the universe" claim has no documented source. Tesla's verified frequency legacy is the 50/60&nbsp;Hz power grid.</p>
+  </div>
+</div>
+
+<script>
+  const PHASE_SEC = 9600;
+  const PULSE_SEC = 1600;
+  const TICK_SEC  = 160;
+  const PHASES = [
+    'CHARGE I','CHARGE II','CHARGE III',
+    'SURGE I','SURGE II','SURGE III',
+    'GROUND I','GROUND II','GROUND III'
+  ];
+  const BAND_COLORS = ['rgba(245,169,59,0.20)','rgba(189,131,71,0.32)','rgba(116,227,198,0.20)'];
+
+  const ticksGroup = document.getElementById('ticks');
+  const bandsGroup = document.getElementById('bands');
+  const needle = document.getElementById('needle');
+  const dialFace = document.getElementById('dialFace');
+  const phaseLabel = document.getElementById('phaseLabel');
+  const pulseRow = document.getElementById('pulseRow');
+  const tickBar = document.getElementById('tickBar');
+  const resVal = document.getElementById('resVal');
+  const refVal = document.getElementById('refVal');
+  const refDate = document.getElementById('refDate');
+  const srAnnounce = document.getElementById('srAnnounce');
+  const tzSelect = document.getElementById('tzSelect');
+  const soundToggle = document.getElementById('soundToggle');
+
+  const cx = 150, cy = 150;
+
+  function polarXY(r, deg){
+    const rad = (deg - 90) * Math.PI / 180;
+    return [cx + r * Math.cos(rad), cy + r * Math.sin(rad)];
+  }
+  function donutSeg(rOuter, rInner, startDeg, endDeg){
+    const [x1,y1] = polarXY(rOuter, startDeg);
+    const [x2,y2] = polarXY(rOuter, endDeg);
+    const [x3,y3] = polarXY(rInner, endDeg);
+    const [x4,y4] = polarXY(rInner, startDeg);
+    return `M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${rOuter} ${rOuter} 0 0 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${x3.toFixed(2)} ${y3.toFixed(2)} A ${rInner} ${rInner} 0 0 0 ${x4.toFixed(2)} ${y4.toFixed(2)} Z`;
+  }
+
+  // Triad color bands (Charge / Surge / Ground)
+  for (let i = 0; i < 3; i++) {
+    const start = i * 120, end = start + 120;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    path.setAttribute('d', donutSeg(137, 114, start, end));
+    path.setAttribute('fill', BAND_COLORS[i]);
+    bandsGroup.appendChild(path);
+  }
+  [0,120,240].forEach(deg => {
+    const [ox,oy] = polarXY(137, deg), [ix,iy] = polarXY(114, deg);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', ix); line.setAttribute('y1', iy);
+    line.setAttribute('x2', ox); line.setAttribute('y2', oy);
+    line.setAttribute('stroke', 'rgba(60,44,28,0.6)');
+    line.setAttribute('stroke-width', '1');
+    bandsGroup.appendChild(line);
+  });
+
+  // 9 phase ticks + numerals
+  const tickEls = [], numEls = [];
+  for (let i = 0; i < 9; i++) {
+    const angle = i * 40;
+    const [x1,y1] = polarXY(118, angle), [x2,y2] = polarXY(132, angle);
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+    line.setAttribute('class', 'tick-line');
+    ticksGroup.appendChild(line);
+    tickEls.push(line);
+
+    const [nx,ny] = polarXY(102, angle);
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', nx); text.setAttribute('y', ny);
+    text.setAttribute('class', 'tick-num');
+    text.textContent = i + 1;
+    ticksGroup.appendChild(text);
+    numEls.push(text);
+  }
+
+  function pad(n, len = 2) { return String(n).padStart(len, '0'); }
+  function phaseTimeRange(idx) {
+    const startMin = Math.round(idx * 160);
+    const endMin = startMin + 160;
+    const fmt = m => `${pad(Math.floor(m/60))}:${pad(m%60)}`;
+    return `${fmt(startMin)}–${fmt(endMin)}`;
+  }
+
+  function getZonedParts(tz) {
+    const now = new Date();
+    if (tz === 'local') {
+      return { h: now.getHours(), m: now.getMinutes(), s: now.getSeconds(), ms: now.getMilliseconds() };
+    }
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+      }).formatToParts(now);
+      const get = t => parts.find(p => p.type === t).value;
+      let h = parseInt(get('hour'), 10); if (h === 24) h = 0;
+      return { h, m: parseInt(get('minute'), 10), s: parseInt(get('second'), 10), ms: now.getMilliseconds() };
+    } catch (e) {
+      return { h: now.getHours(), m: now.getMinutes(), s: now.getSeconds(), ms: now.getMilliseconds() };
+    }
+  }
+
+  // --- Sound ---
+  let audioCtx = null, soundOn = false;
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audioCtx = null; }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  }
+  function blip(freq, dur, vol) {
+    if (!soundOn || !audioCtx) return;
+    const t0 = audioCtx.currentTime;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(freq, t0);
+    gain.gain.setValueAtTime(0.0001, t0);
+    gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(t0); osc.stop(t0 + dur + 0.02);
+  }
+  function playTickClick() { blip(640, 0.05, 0.05); }
+  function playPhaseTone() { blip(330, 0.05, 0.06); setTimeout(() => blip(495, 0.16, 0.07), 70); }
+
+  soundToggle.addEventListener('click', () => {
+    soundOn = !soundOn;
+    ensureAudioCtx();
+    soundToggle.textContent = soundOn ? 'SOUND ON' : 'SOUND OFF';
+    soundToggle.setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+    if (soundOn) blip(520, 0.05, 0.05);
+  });
+
+  // --- Phase flash ---
+  let flashTimer = null;
+  function flashPhase() {
+    dialFace.classList.remove('flash');
+    void dialFace.offsetWidth;
+    dialFace.classList.add('flash');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => dialFace.classList.remove('flash'), 900);
+  }
+
+  // --- Main loop ---
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let lastPhaseIdx = -1, lastPulseKey = -1, lastTickKey = -1, lastSecondDisplayed = -1;
+  let isFirstRun = true;
+
+  tzSelect.addEventListener('change', () => {
+    lastPhaseIdx = -1; lastPulseKey = -1; lastTickKey = -1; lastSecondDisplayed = -1;
+    isFirstRun = true;
+  });
+
+  function frame() {
+    requestAnimationFrame(frame);
+    const { h, m, s, ms } = getZonedParts(tzSelect.value);
+    const secondsToday = h*3600 + m*60 + s + ms/1000;
+
+    const flooredSecond = Math.floor(secondsToday);
+    if (reducedMotion && flooredSecond === lastSecondDisplayed) return;
+
+    const phaseIdx = Math.floor(secondsToday / PHASE_SEC) % 9;
+    const secInPhase = secondsToday % PHASE_SEC;
+    const pulseIdx = Math.floor(secInPhase / PULSE_SEC);
+    const secInPulse = secInPhase % PULSE_SEC;
+    const tickIdx = Math.floor(secInPulse / TICK_SEC);
+
+    const angle = (secondsToday / 86400) * 360;
+    needle.setAttribute('transform', `rotate(${angle} ${cx} ${cy})`);
+
+    const phaseChanged = phaseIdx !== lastPhaseIdx;
+    if (phaseChanged) {
+      tickEls.forEach((el, i) => el.classList.toggle('active', i === phaseIdx));
+      numEls.forEach((el, i) => el.classList.toggle('active', i === phaseIdx));
+      phaseLabel.innerHTML = `PHASE ${phaseIdx+1} — ${PHASES[phaseIdx]} <span>(${phaseTimeRange(phaseIdx)})</span>`;
+      if (!isFirstRun) {
+        flashPhase();
+        playPhaseTone();
+        srAnnounce.textContent = `Phase ${phaseIdx+1}, ${PHASES[phaseIdx]}, has begun.`;
+      }
+      lastPhaseIdx = phaseIdx;
+    }
+
+    const pulseKey = phaseIdx * 6 + pulseIdx;
+    const pulseChanged = pulseKey !== lastPulseKey;
+    if (pulseChanged) {
+      pulseRow.innerHTML = '';
+      for (let i = 0; i < 6; i++) {
+        const dot = document.createElement('div');
+        dot.className = 'pulse-dot';
+        if (i < pulseIdx) dot.classList.add('filled');
+        if (i === pulseIdx) dot.classList.add('now');
+        pulseRow.appendChild(dot);
+      }
+      if (!isFirstRun && !phaseChanged) {
+        srAnnounce.textContent = `Pulse ${pulseIdx+1} of 6.`;
+      }
+      lastPulseKey = pulseKey;
+    }
+
+    const tickKey = pulseKey * 10 + tickIdx;
+    const tickChanged = tickKey !== lastTickKey;
+    if (tickChanged) {
+      tickBar.innerHTML = '';
+      for (let i = 0; i < 10; i++) {
+        const seg = document.createElement('div');
+        seg.className = 'tick-seg';
+        if (i < tickIdx) seg.classList.add('done');
+        if (i === tickIdx) seg.classList.add('live');
+        tickBar.appendChild(seg);
+      }
+      if (!isFirstRun && !pulseChanged) playTickClick();
+      lastTickKey = tickKey;
+    }
+
+    if (flooredSecond !== lastSecondDisplayed) {
+      resVal.textContent = `${phaseIdx+1}.${pulseIdx+1}.${pad(tickIdx)}`;
+      refVal.textContent = `${pad(h)}:${pad(m)}:${pad(s)}`;
+      refDate.textContent = new Date().toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+      lastSecondDisplayed = flooredSecond;
+    }
+
+    isFirstRun = false;
+  }
+
+  requestAnimationFrame(frame);
+</script>
+
+</body>
+</html>
